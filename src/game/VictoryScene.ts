@@ -13,8 +13,12 @@ export class VictoryScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.cameras.main.setBackgroundColor('#0b1020');
     this.add.rectangle(width / 2, height / 2, width, height, 0x0b1020).setDepth(-10);
+    
+    const sceneData = this.scene.settings.data as { foundCount?: number; totalCount?: number } | undefined;
+    const foundCount = sceneData?.foundCount ?? 0;
+    const totalCount = sceneData?.totalCount ?? 0;
 
-    new VictoryScreen(this, () => {
+    new VictoryScreen(this, foundCount, totalCount, () => {
       this.audio.handleVictory();
       this.scene.start('GameScene', {
         carNumberIndex: 1,
