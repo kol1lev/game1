@@ -4,14 +4,13 @@ const DEPTH_OVERLAY = 100;
 const DEPTH_PANEL = 101;
 const DEPTH_TEXT = 102;
 
-const TEXT =
-  'Поздравляем, вы покинули состав.\nНажмите любую кнопку, чтобы начать сначала.';
+
 
 export class VictoryScreen {
   private container?: Phaser.GameObjects.Container;
   private keyboardHandler?: (event: KeyboardEvent) => void;
 
-  constructor(private readonly scene: Phaser.Scene, private readonly onRestart: () => void) {}
+  constructor(private readonly scene: Phaser.Scene,  private readonly foundCount: number, private readonly totalCount: number, private readonly onRestart: () => void) {}
 
   public show(): void {
     if (this.container) {
@@ -36,7 +35,9 @@ export class VictoryScreen {
     graphics.fillRoundedRect(panelX - panelWidth / 2, panelY - panelHeight / 2, panelWidth, panelHeight, radius);
     graphics.setDepth(DEPTH_PANEL);
     this.container.add(graphics);
+    const shown = Math.min(this.foundCount, this.totalCount);
 
+    const TEXT = `Поздравляем, вы покинули состав.\nНайдено аномалий: ${shown}/${this.totalCount}.\nНажмите любую кнопку, чтобы начать сначала`;
     const text = this.scene.add.text(panelX, panelY, TEXT, {
       fontFamily: 'sans-serif',
       fontSize: '24px',

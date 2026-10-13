@@ -85,6 +85,9 @@ export abstract class Wagon {
     return false;
   }
 
+  // Результат выхода из вагона важен только аномалиям; обычные вагоны игнорируют его.
+  public markExitResult(_found: boolean): void {}
+
   protected spawnBase(options: WagonSpawnOptions, mapTextureKey: string): WagonSpawnResult {
     const { mapWidth, visibleHeight, mapScrollX, startsAtRight, npcY, npcSpeed, npcTravelRatio, greetingTextureKey, loseOnSecondInteraction } = options;
     const mapImage = this.scene.add.image(-mapScrollX, 0, mapTextureKey).setOrigin(0, 0);

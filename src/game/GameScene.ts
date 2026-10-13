@@ -10,6 +10,7 @@ import { DefeatScreen } from './DefeatScreen';
 import { WelcomeScreen } from './WelcomeScreen';
 import { VictoryScreen } from './VictoryScreen';
 import { BackgroundMusic } from './BackgroundMusic';
+import { Anomaly } from './Anomaly';
 
 const CAR_NUMBER_ASSETS = import.meta.glob('../pics/nums/*.png', { eager: true, import: 'default' }) as Record<string, string>;
 const MAP_EDGE_PLAYER_MARGIN = 80;
@@ -61,11 +62,14 @@ export class GameScene extends Phaser.Scene {
     return `d${normalizedIndex}`;
   }
 
-  private getNextCarNumberIndex(currentCarNumber: number, moveLeft: boolean): number {
-    // В аномалии номер растёт при возврате через входную дверь, в обычном вагоне — при выходе через противоположную.
+  // В аномалии правильный выход — возврат через входную дверь, в обычном вагоне — через противоположную.
+  private exitsCorrectly(moveLeft: boolean): boolean {
     const exitsThroughEntryDoor = moveLeft !== this.startFromRight;
-    const correctExit = this.wagon.type === 'anomaly' ? exitsThroughEntryDoor : !exitsThroughEntryDoor;
-    if (!correctExit) {
+    return this.wagon.type === 'anomaly' ? exitsThroughEntryDoor : !exitsThroughEntryDoor;
+  }
+
+  private getNextCarNumberIndex(currentCarNumber: number, moveLeft: boolean): number {
+    if (!this.exitsCorrectly(moveLeft)) {
       return 1;
     }
 
@@ -82,11 +86,15 @@ export class GameScene extends Phaser.Scene {
 
   private startTransition(moveLeft: boolean): void {
     const nextCarNumberIndex = this.getNextCarNumberIndex(this.currentCarNumber, moveLeft);
+    this.wagon.markExitResult(this.exitsCorrectly(moveLeft));
 
     if (this.isVictory(nextCarNumberIndex)) {
       this.transitionStarted = true;
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start('VictoryScene');
+        this.scene.start('VictoryScene', {
+          foundCount: Anomaly.foundCount,
+          totalCount: Anomaly.totalVariantCount,
+        });
       });
       this.cameras.main.fadeOut(350, 0, 0, 0);
       return;
@@ -250,6 +258,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.loseAnimationActive = true;
+    this.wagon.markExitResult(false);
     this.audio.handleDefeat();
     this.player.hide();
     this.npc.hide();
