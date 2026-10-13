@@ -121,6 +121,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload(): void {
+    console.log('Preload начался');
+    this.load.on('complete', () => {
+        console.log('Загрузка всех ресурсов завершена!');
+    });
     WagonFactory.preload(this);
     Player.preload(this);
     this.load.image('door-hint', doorHintTexture);
