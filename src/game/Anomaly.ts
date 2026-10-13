@@ -93,18 +93,39 @@ export class Anomaly extends Wagon {
   private readonly variant: AnomalyVariant;
   private readonly mapTextureKey: (typeof ANOMALY_MAP_KEYS)[number] | 'map-normal';
 
-    // Прогресс поиска аномалий живёт в статике: он переживает перезапуск сцены.
-  private static unfoundVariants: AnomalyVariant[] = Phaser.Math.RND.shuffle([...ANOMALY_VARIANTS]);
-  private static readonly foundVariants: AnomalyVariant[] = [];
-  private static discoveredTotal = 0;
+  // Прогресс поиска аномалий живёт в статике: он переживает перезапуск сцены.
+  // Инициализация отложена, потому что Phaser.Math.RND доступен только после старта игры.
+  private static _unfoundVariants: AnomalyVariant[] | null = null;
+  private static readonly _foundVariants: AnomalyVariant[] = [];
+  private static _discoveredTotal = 0;
+  private static _initialized = false;
+
+  private static get unfoundVariants(): AnomalyVariant[] {
+    if (!Anomaly._initialized) {
+      Anomaly._unfoundVariants = Phaser.Math.RND.shuffle([...ANOMALY_VARIANTS]);
+      Anomaly._initialized = true;
+    }
+
+    return Anomaly._unfoundVariants!;
+  }
 
   public static get foundCount(): number {
-    return Anomaly.discoveredTotal;
+    return Anomaly._discoveredTotal;
   }
 
   public static get totalVariantCount(): number {
     return ANOMALY_VARIANTS.length;
   }
+
+  private static resetCycle(): void {
+    if (Anomaly._foundVariants.length === 0) {
+      return;
+    }
+
+    Anomaly._unfoundVariants = Phaser.Math.RND.shuffle([...Anomaly._foundVariants]);
+    Anomaly._foundVariants.length = 0;
+  }
+
 
   public static preload(scene: Phaser.Scene): void {
     scene.load.image(ANOMALY_MAP_KEYS[0], anomaly1MapTexture);
@@ -247,25 +268,25 @@ export class Anomaly extends Wagon {
     return overlay;
   }
 
-    // found=true — игрок вернулся через входную дверь (заметил аномалию), false — прошёл дальше.
-public markExitResult(found: boolean): void {
+  // found=true — игрок вернулся через входную дверь (заметил аномалию), false — прошёл дальше или погиб.
+  public markExitResult(found: boolean): void {
     const index = Anomaly.unfoundVariants.indexOf(this.variant);
     if (index === -1) {
       return;
     }
-    Anomaly.unfoundVariants.splice(index, 1);
+
+    const [removed] = Anomaly.unfoundVariants.splice(index, 1);
 
     if (!found) {
-      Anomaly.unfoundVariants.push(this.variant);
+      Anomaly.unfoundVariants.push(removed);
       return;
     }
 
-    Anomaly.foundVariants.push(this.variant);
-    Anomaly.discoveredTotal += 1;
+    Anomaly._foundVariants.push(removed);
+    Anomaly._discoveredTotal = Math.max(Anomaly._discoveredTotal, Anomaly._foundVariants.length);
     // Все варианты найдены: найденные становятся новой перемешанной очередью ненайденных.
-    if (Anomaly.foundVariants.length === ANOMALY_VARIANTS.length) {
-      Anomaly.unfoundVariants = Phaser.Math.RND.shuffle([...Anomaly.foundVariants]);
-      Anomaly.foundVariants.length = 0;
+    if (Anomaly._foundVariants.length === ANOMALY_VARIANTS.length) {
+      Anomaly.resetCycle();
     }
   }
 }
