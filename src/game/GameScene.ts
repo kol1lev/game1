@@ -130,9 +130,41 @@ export class GameScene extends Phaser.Scene {
 
   preload(): void {
     console.log('Preload начался');
+
+    const { width, height } = this.scale;
+    const barWidth = Math.min(width * 0.6, 520);
+    const barHeight = 18;
+    const barX = (width - barWidth) / 2;
+    const barY = height / 2;
+
+    const box = this.add.graphics();
+    box.fillStyle(0x1a1f2e, 0.95);
+    box.fillRoundedRect(barX - 4, barY - 4, barWidth + 8, barHeight + 8, 9);
+
+    const label = this.add
+      .text(width / 2, barY - 40, 'Загрузка...', {
+        fontFamily: 'sans-serif',
+        fontSize: '24px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+
+    const bar = this.add.graphics();
+    this.load.on('progress', (value: number) => {
+      bar.clear();
+      bar.fillStyle(0x4f8cff, 1);
+      bar.fillRoundedRect(barX, barY, Math.max(8, barWidth * value), barHeight, 9);
+      label.setText(`Загрузка... ${Math.round(value * 100)}%`);
+    });
+    this.load.once('complete', () => {
+      bar.destroy();
+      box.destroy();
+      label.destroy();
+    });
     this.load.on('complete', () => {
         console.log('Загрузка всех ресурсов завершена!');
     });
+    
     WagonFactory.preload(this);
     Player.preload(this);
     this.load.image('door-hint', doorHintTexture);
