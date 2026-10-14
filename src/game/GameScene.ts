@@ -197,6 +197,9 @@ export class GameScene extends Phaser.Scene {
     this.transitionStarted = false;
     this.loseAnimationActive = false;
 
+    // Аудио докачивается в фоне: первый кадр не ждёт оставшиеся звуки.
+    this.audio.preloadDeferred(this);
+
     const { width, height } = this.scale;
     // Выбираем вагон один раз: размеры его текстуры задают границы прокрутки карты.
     this.wagon = WagonFactory.create(this, this.requestedWagonType);

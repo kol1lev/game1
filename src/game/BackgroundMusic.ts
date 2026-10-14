@@ -50,7 +50,6 @@ export class BackgroundMusic {
   private trainSoundindex = 1;
   private stepIndex = 0;
   private waterDropTimer?: Phaser.Time.TimerEvent;
-  private preloaded = false;
 
   private constructor() {}
 
@@ -64,22 +63,54 @@ export class BackgroundMusic {
 
   // Загружает аудио. Повторные вызовы игнорируются: кэш Phaser переживает перезапуск сцены.
   public preload(scene: Phaser.Scene): void {
-    if (this.preloaded) {
+    // Критичные звуки, нужные сразу: первый трек, первый звук поезда, шаги, капли, рык.
+    this.loadCritical(scene);
+  }
+
+  // Критичные для старта звуки: без них игрок услышит тишину в первые секунды.
+  private loadCritical(scene: Phaser.Scene): void {
+    const critical: Array<[string, string]> = [
+      [this.getMusicKey(0), MUSIC_TRACKS[0]],
+      [this.getTrainKey(0), TRAIN_SOUNDS[0]],
+      ...STEP_SOUNDS.map((url, index) => [this.getStepKey(index), url] as [string, string]),
+      [WATER_DROP_KEY, waterDrop],
+      [MONSTER_KEY, monsterSound],
+    ];
+
+    critical.forEach(([key, url]) => scene.load.audio(key, url));
+  }
+
+  // Полный набор аудио: ключ -> url. Нужен, чтобы докачивать только недостающее.
+  private collectAudioAssets(): Array<[string, string]> {
+    const remainingMusic = MUSIC_TRACKS
+      .slice(1)
+      .map((url, index) => [this.getMusicKey(index + 1), url] as [string, string]);
+    const remainingTrain = TRAIN_SOUNDS
+      .slice(1)
+      .map((url, index) => [this.getTrainKey(index + 1), url] as [string, string]);
+
+    return [
+      // Остальные звуки поезда — приоритетнее, они играют постоянно.
+      ...remainingTrain,
+      // Остальные музыкальные треки — следующие по приоритету.
+      ...remainingMusic,
+    ];
+  }
+
+  // Качает аудио в фоне, не задерживая первый кадр. Дозагружает только то, чего нет в кэше.
+  public preloadDeferred(scene: Phaser.Scene): void {
+    // shutdown сцены сбрасывает загрузчик, поэтому занят ли он — спрашиваем у него самого.
+    if (scene.load.isLoading()) {
       return;
     }
 
-    this.preloaded = true;
-    MUSIC_TRACKS.forEach((url, index) => {
-      scene.load.audio(this.getMusicKey(index), url);
-    });
-    TRAIN_SOUNDS.forEach((url, index) => {
-      scene.load.audio(this.getTrainKey(index), url);
-    });
-    STEP_SOUNDS.forEach((url, index) => {
-      scene.load.audio(this.getStepKey(index), url);
-    });
-    scene.load.audio(WATER_DROP_KEY, waterDrop);
-    scene.load.audio(MONSTER_KEY, monsterSound);
+    const missing = this.collectAudioAssets().filter(([key]) => !scene.cache.audio.has(key));
+    if (missing.length === 0) {
+      return;
+    }
+
+    missing.forEach(([key, url]) => scene.load.audio(key, url));
+    scene.load.start();
   }
   
 
@@ -194,7 +225,16 @@ export class BackgroundMusic {
   }
 
   private playTrack(scene: Phaser.Scene): void {
-    const track = scene.sound.add(this.getMusicKey(this.trackIndex), {
+    const nextKey = this.getMusicKey(this.trackIndex);
+
+    // Если следующий трек ещё не загружен, ждём 500 мс и пробуем снова.
+    // Это защита от тишины, когда фоновая загрузка не успевает.
+    if (!scene.cache.audio.has(nextKey)) {
+      scene.time.delayedCall(500, () => this.playTrack(scene));
+      return;
+    }
+
+    const track = scene.sound.add(nextKey, {
       volume: MUSIC_VOLUME,
       loop: false,
     });
@@ -212,7 +252,15 @@ export class BackgroundMusic {
   
 
   private playTrain(scene: Phaser.Scene): void {
-    const ctrain = scene.sound.add(this.getTrainKey(this.trainSoundindex), {
+    const nextKey = this.getTrainKey(this.trainSoundindex);
+
+    // Если следующий звук поезда ещё не загружен, ждём 500 мс и пробуем снова.
+    if (!scene.cache.audio.has(nextKey)) {
+      scene.time.delayedCall(500, () => this.playTrain(scene));
+      return;
+    }
+
+    const ctrain = scene.sound.add(nextKey, {
         volume: this.trainSoundindex > 0 ? TRAIN_VOLUME * 0.08 : TRAIN_VOLUME * 0.03,
         loop: false,
     });
