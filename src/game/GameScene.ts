@@ -150,20 +150,22 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const bar = this.add.graphics();
-    this.load.on('progress', (value: number) => {
+    const onProgress = (value: number) => {
       bar.clear();
       bar.fillStyle(0x4f8cff, 1);
       bar.fillRoundedRect(barX, barY, Math.max(8, barWidth * value), barHeight, 9);
       label.setText(`Загрузка... ${Math.round(value * 100)}%`);
-    });
-    this.load.once('complete', () => {
+    };
+    const onLoadComplete = () => {
+      // Фоновая докачка снова вызывает progress, а объекты уже уничтожены — отписываемся.
+      this.load.off('progress', onProgress);
+      this.load.off('complete', onLoadComplete);
       bar.destroy();
       box.destroy();
       label.destroy();
-    });
-    this.load.on('complete', () => {
-        console.log('Загрузка всех ресурсов завершена!');
-    });
+    };
+    this.load.on('progress', onProgress);
+    this.load.on('complete', onLoadComplete);
     
     WagonFactory.preload(this);
     Player.preload(this);
